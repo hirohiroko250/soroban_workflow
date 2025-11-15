@@ -1,0 +1,2 @@
+# soroban_workflow
+OZAからスプレッドシートへのワークフロー
