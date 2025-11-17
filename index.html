@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base target="_top" />
+    <title>出退勤ログ</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: clamp(16px, 5vw, 24px);
+        background: #f6f7fb;
+      }
+
+      main {
+        max-width: 440px;
+        margin: 0 auto;
+        padding: clamp(20px, 6vw, 32px);
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+      }
+
+      h1 {
+        margin-top: 0;
+        font-size: 1.4rem;
+        text-align: center;
+      }
+
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      input[type="text"],
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 14px;
+        font-size: 1rem;
+        border-radius: 8px;
+        border: 1px solid #d0d7de;
+        background: #fff;
+      }
+
+      .button-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 14px;
+        font-size: clamp(1rem, 4vw, 1.1rem);
+        font-weight: 700;
+        cursor: pointer;
+        color: #fff;
+      }
+
+      button[data-action="start"] {
+        background: #16a34a;
+      }
+
+      button[data-action="end"] {
+        background: #2563eb;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: progress;
+      }
+
+      #status {
+        min-height: 1.2em;
+        margin-top: 24px;
+        font-size: clamp(0.9rem, 3.5vw, 0.95rem);
+        font-weight: 600;
+      }
+
+      @media (max-width: 480px) {
+        main {
+          box-shadow: none;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        body {
+          background: #fff;
+        }
+
+        .button-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .status-ok {
+        color: #15803d;
+      }
+
+      .status-error {
+        color: #dc2626;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>教室 出退勤ログ</h1>
+      <p>先生IDを入力し、出勤または退勤ボタンを押してください。</p>
+      <label for="teacherId">先生ID</label>
+      <input id="teacherId" type="text" placeholder="例：T-001" autocomplete="off" />
+
+      <label for="campusId">校舎</label>
+      <select id="campusId">
+        <option value="">校舎を選択</option>
+        <? var campusList = campuses || []; ?>
+        <? campusList.forEach(function (campus) { ?>
+        <option value="<?= campus.id ?>"><?= campus.name ?></option>
+        <? }); ?>
+      </select>
+
+      <div class="button-row">
+        <button data-action="start">出勤</button>
+        <button data-action="end">退勤</button>
+      </div>
+
+      <div id="status" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const buttons = document.querySelectorAll('button[data-action]');
+      const teacherField = document.getElementById('teacherId');
+      const statusArea = document.getElementById('status');
+      const campusField = document.getElementById('campusId');
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => handleAction(btn.dataset.action));
+      });
+
+      function handleAction(action) {
+        const teacherId = teacherField.value.trim();
+        if (!teacherId) {
+          showMessage('先生IDを入力してください。', true);
+          teacherField.focus();
+          return;
+        }
+
+        const campusId = campusField.value;
+        if (!campusId) {
+          showMessage('校舎を選択してください。', true);
+          campusField.focus();
+          return;
+        }
+
+        setBusy(true);
+        showMessage('送信中...', false);
+
+        google.script.run
+          .withSuccessHandler((result) => {
+            const label = result.action === 'start' ? '出勤' : '退勤';
+            const campusLabel = result.campus ? `（${result.campus.name}）` : '';
+            showMessage(`${result.date} ${result.time} に${label}を登録しました${campusLabel}。`, false);
+            teacherField.value = '';
+            campusField.selectedIndex = 0;
+            teacherField.focus();
+            setBusy(false);
+          })
+          .withFailureHandler((err) => {
+            showMessage(err.message || '登録に失敗しました。', true);
+            setBusy(false);
+          })
+          .recordAttendance(teacherId, action, campusId);
+      }
+
+      function setBusy(isBusy) {
+        buttons.forEach((btn) => {
+          btn.disabled = isBusy;
+        });
+      }
+
+      function showMessage(message, isError) {
+        statusArea.textContent = message;
+        statusArea.className = isError ? 'status-error' : 'status-ok';
+      }
+    </script>
+  </body>
+</html>
