@@ -1,0 +1,30 @@
+name: OZA Attendance Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * *'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run scraper
+        env:
+          OZA_USERNAME: ${{ secrets.OZA_USERNAME }}
+          OZA_PASSWORD: ${{ secrets.OZA_PASSWORD }}
+          GAS_WEBHOOK: ${{ secrets.GAS_WEBHOOK }}
+          GAS_API_KEY: ${{ secrets.GAS_API_KEY }}
+          OZA_COURSE_IDS: ${{ secrets.OZA_COURSE_IDS }}
+        run: |
+          python oza_scrape_attendance.py \
+            --fetch-details \
+            --school-ids auto
